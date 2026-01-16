@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Elderly Reminder System — Single File</title>
+  <style>
+    :root{--bg:#f7fbff;--card:#ffffff;--accent:#2563eb;--muted:#6b7280}
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:#0f172a}
+    .app{max-width:980px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;gap:16px}
+    h1{font-size:28px;margin:0}
+    p.lead{margin:6px 0 18px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 6px 18px rgba(11,35,77,0.06)}
+    label{display:block;font-weight:600;margin:8px 0 6px}
+    input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eef8;font-size:16px}
+    .controls{display:flex;gap:8px;margin-top:10px}
+    button{padding:10px 12px;border-radius:10px;border:0;cursor:pointer;font-weight:600}
+    .btn-primary{background:var(--accent);color:white}
+    .btn-ghost{background:transparent;border:1px solid #e6eef8}
+    .reminder{display:flex;align-items:center;justify-content:space-between;padding:12px;border-radius:10px;margin-bottom:10px}
+    .rem-left{display:flex;gap:12px;align-items:center}
+    .pill{padding:6px 8px;border-radius:999px;background:#eef2ff;color:#1e3a8a;font-weight:700;font-size:14px}
+    .small{font-size:13px;color:var(--muted)}
+    .muted{color:var(--muted)}
+    .big{font-size:18px;font-weight:700}
+    .danger{color:#b91c1c}
+    .footer{margin-top:14px;color:var(--muted);font-size:13px}
+    /* Responsive */
+    @media (max-width:900px){.grid{grid-template-columns:1fr}.card{padding:14px}}
+    /* Large accessible buttons for elderly */
+    .controls button{font-size:16px;padding:12px 14px}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'></circle><path d='M12 7v6l4 2'></path></svg>" alt="logo" style="width:48px;height:48px">
+      <div>
+        <h1>Elderly Reminder System</h1>
+        <p class="lead">Large text, simple flow, persistent reminders and in-browser notifications.</p>
+      </div>
+    </header>
+
+    <div class="grid" style="margin-top:18px">
+      <div>
+        <div class="card">
+          <h2 style="margin:0 0 8px">Upcoming Reminders</h2>
+          <div id="list" style="margin-top:12px"></div>
+          <div class="footer">Open the page to receive reminders. For sound/desktop notifications allow browser permissions.</div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <h3 style="margin:0 0 8px">History (Completed / Missed)</h3>
+          <div id="history" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <h3 style="margin:0 0 8px">Add / Edit Reminder</h3>
+          <form id="form">
+            <input type="hidden" id="rem-id">
+            <label for="title">Title</label>
+            <input id="title" required placeholder="Take morning medicine" />
+
+            <label for="notes">Notes (optional)</label>
+            <textarea id="notes" rows="3" placeholder="Take with water..."></textarea>
+
+            <label for="date">Date</label>
+            <input type="date" id="date" required />
+
+            <label for="time">Time</label>
+            <input type="time" id="time" required />
+
+            <label for="freq">Repeat</label>
+            <select id="freq">
+              <option value="none">Does not repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+
+            <div class="controls">
+              <button type="submit" class="btn-primary">Save Reminder</button>
+              <button type="button" id="clear" class="btn-ghost">Clear</button>
+            </div>
+
+            <div style="margin-top:12px">
+              <label style="font-weight:600">Settings</label>
+              <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+                <button id="enableNoti" type="button" class="btn-primary">Enable Notifications</button>
+                <button id="playTest" type="button" class="btn-ghost">Test Sound</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h4 style="margin:0 0 8px">Quick Actions</h4>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button id="clearAll" class="btn-ghost">Clear all reminders</button>
+            <button id="export" class="btn-ghost">Export JSON</button>
+            <button id="importBtn" class="btn-ghost">Import JSON</button>
+            <input id="importFile" type="file" accept="application/json" style="display:none" />
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <audio id="ding" src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAAAA..." preload="auto"></audio>
+
+  <script>
+    // Simple single-file reminder app
+    const STORAGE_KEY = 'elderly_reminders_v1'
+    let reminders = []
+
+    // Helpers
+    function uid(){return 'r_'+Date.now()+'_'+Math.floor(Math.random()*9999)}
+    function save(){localStorage.setItem(STORAGE_KEY, JSON.stringify(reminders))}
+    function load(){try{reminders = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch(e){reminders=[]}}
+
+    // Notification helpers
+    async function requestNotificationPermission(){
+      if(!('Notification' in window)) return alert('Notifications not supported in this browser.')
+      const res = await Notification.requestPermission()
+      if(res==='granted') alert('Notifications enabled. Keep this tab open for timely alerts.')
+    }
+
+    function notify(rem){
+      // Desktop notification
+      if(Notification.permission==='granted'){
+        const n = new Notification(rem.title, {body: rem.notes || 'Reminder', tag: rem.id})
+        n.onclick = ()=>window.focus()
+      }
+      // Play sound
+      try{document.getElementById('ding').play().catch(()=>{})}catch(e){}
+      // Visual highlight - simple alert fallback for accessibility
+      if(!('Notification' in window)) alert(rem.title + '\n' + (rem.notes||''))
+    }
+
+    // Scheduler: check every 15 seconds
+    function startScheduler(){
+      setInterval(()=>{
+        const now = new Date()
+        reminders.forEach(r=>{
+          if(r.status!=='active') return
+          const next = new Date(r.nextRun)
+          if(!next) return
+          // if due now or in past and not yet triggered
+          if(now >= next && !r.triggeredAt){
+            r.triggeredAt = Date.now()
+            r.status = r.repeat==='none' ? 'done' : 'active'
+            // compute nextRun for recurring items
+            if(r.repeat!=='none'){
+              const d = new Date(next)
+              if(r.repeat==='daily') d.setDate(d.getDate()+1)
+              if(r.repeat==='weekly') d.setDate(d.getDate()+7)
+              if(r.repeat==='monthly') d.setMonth(d.getMonth()+1)
+              r.nextRun = d.toISOString()
+            }
+            // push to history
+            r.history = r.history||[]
+            r.history.push({when: Date.now(), type: 'fired'})
+            save(); render(); notify(r)
+          }
+        })
+      },15000)
+    }
+
+    // UI render
+    function render(){
+      const list = document.getElementById('list'); list.innerHTML=''
+      const historyEl = document.getElementById('history'); historyEl.innerHTML=''
+      const upcoming = reminders.filter(r=>r.status!=='archived').sort((a,b)=> new Date(a.nextRun) - new Date(b.nextRun))
+
+      if(upcoming.length===0){ list.innerHTML = '<div class="muted">No reminders. Add one on the right.</div>' }
+      upcoming.forEach(r=>{
+        const div = document.createElement('div'); div.className='reminder card'
+        const left = document.createElement('div'); left.className='rem-left'
+        const pill = document.createElement('div'); pill.className='pill'; pill.textContent = (new Date(r.nextRun)).toLocaleString()
+        const txt = document.createElement('div'); txt.innerHTML = `<div class="big">${escapeHtml(r.title)}</div><div class="small">${escapeHtml(r.notes||'')}</div>`
+        left.appendChild(pill); left.appendChild(txt)
+        const right = document.createElement('div'); right.style.display='flex'; right.style.flexDirection='column'; right.style.gap='8px';
+        const edit = document.createElement('button'); edit.className='btn-ghost'; edit.textContent='Edit'; edit.onclick = ()=>populateForm(r.id)
+        const del = document.createElement('button'); del.className='btn-ghost danger'; del.textContent='Archive'; del.onclick = ()=>{ if(confirm('Archive this reminder?')){ r.status='archived'; save(); render() }}
+        right.appendChild(edit); right.appendChild(del)
+        div.appendChild(left); div.appendChild(right)
+        list.appendChild(div)
+      })
+
+      // history
+      const done = reminders.filter(r=>r.status!=='active')
+      if(done.length===0){ historyEl.innerHTML = '<div class="muted">No history yet.</div>' }
+      done.slice().reverse().forEach(r=>{
+        const d = document.createElement('div'); d.style.padding='8px'; d.style.borderBottom='1px solid #f1f5f9'
+        d.innerHTML = `<div style="font-weight:700">${escapeHtml(r.title)}</div><div class="small">Status: ${escapeHtml(r.status)} • Next: ${r.nextRun?new Date(r.nextRun).toLocaleString():'-'}</div>`
+        historyEl.appendChild(d)
+      })
+    }
+
+    // Form handling
+    function populateForm(id){
+      const r = reminders.find(x=>x.id===id); if(!r) return
+      document.getElementById('rem-id').value = r.id
+      document.getElementById('title').value = r.title
+      document.getElementById('notes').value = r.notes || ''
+      const nd = new Date(r.nextRun)
+      document.getElementById('date').value = nd.toISOString().slice(0,10)
+      document.getElementById('time').value = nd.toTimeString().slice(0,5)
+      document.getElementById('freq').value = r.repeat || 'none'
+    }
+
+    function clearForm(){ document.getElementById('form').reset(); document.getElementById('rem-id').value=''; }
+
+    document.getElementById('form').addEventListener('submit', e=>{
+      e.preventDefault();
+      const id = document.getElementById('rem-id').value || uid()
+      const title = document.getElementById('title').value.trim()
+      const notes = document.getElementById('notes').value.trim()
+      const date = document.getElementById('date').value
+      const time = document.getElementById('time').value
+      const repeat = document.getElementById('freq').value
+      if(!title||!date||!time) return alert('Please fill title, date and time.')
+      const nextRun = new Date(date + 'T' + time)
+      let existing = reminders.find(r=>r.id===id)
+      if(existing){ existing.title=title; existing.notes=notes; existing.repeat=repeat; existing.nextRun = nextRun.toISOString(); existing.status='active'; existing.triggeredAt = null }
+      else{ reminders.push({id,title,notes,repeat,nextRun:nextRun.toISOString(),status:'active',createdAt:Date.now()}) }
+      save(); render(); clearForm()
+    })
+
+    document.getElementById('clear').addEventListener('click', clearForm)
+    document.getElementById('enableNoti').addEventListener('click', requestNotificationPermission)
+
+    document.getElementById('playTest').addEventListener('click', ()=>{ try{document.getElementById('ding').play()}catch(e){alert('Sound blocked by browser — allow autoplay or click play.') } })
+
+    document.getElementById('clearAll').addEventListener('click', ()=>{ if(confirm('Remove all reminders?')){ reminders=[]; save(); render() } })
+
+    // Export / Import
+    document.getElementById('export').addEventListener('click', ()=>{
+      const data = JSON.stringify(reminders, null, 2)
+      const blob = new Blob([data],{type:'application/json'})
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = 'reminders.json'; a.click(); URL.revokeObjectURL(url)
+    })
+
+    document.getElementById('importBtn').addEventListener('click', ()=>document.getElementById('importFile').click())
+    document.getElementById('importFile').addEventListener('change',e=>{
+      const f = e.target.files[0]; if(!f) return
+      const reader = new FileReader(); reader.onload = ()=>{
+        try{ const parsed = JSON.parse(reader.result); if(Array.isArray(parsed)){ reminders=parsed; save(); render(); alert('Imported reminders.') } else alert('Invalid file.') }catch(err){alert('Invalid JSON')}
+      }; reader.readAsText(f)
+    })
+
+    // Small XSS helper
+    function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+    // Init
+    load(); render(); startScheduler()
+
+    // Instruction: if you want accurate background/phone push notifications, pair with a simple backend or use PWA + service-worker. This demo runs while the page is open.
+  </script>
+</body>
+</html>
