@@ -191,16 +191,17 @@
         list.appendChild(div)
       })
 
-      // history
-      const done = reminders.filter(r=>r.status!=='active')
-      if(done.length===0){ historyEl.innerHTML = '<div class="muted">No history yet.</div>' }
-      done.slice().reverse().forEach(r=>{
-        const d = document.createElement('div'); d.style.padding='8px'; d.style.borderBottom='1px solid #f1f5f9'
-        d.innerHTML = `<div style="font-weight:700">${escapeHtml(r.title)}</div><div class="small">Status: ${escapeHtml(r.status)} • Next: ${r.nextRun?new Date(r.nextRun).toLocaleString():'-'}</div>`
-        historyEl.appendChild(d)
-      })
-    }
-
+    
+   // history
+const done = reminders.filter(r=>r.status!=='active')
+if(done.length===0){ historyEl.innerHTML = '<div class="muted">No history yet.</div>' }
+done.slice().reverse().forEach(r=>{
+  const d = document.createElement('div'); 
+  d.style.padding='8px'; 
+  d.style.borderBottom='1px solid #f1f5f9'
+  d.innerHTML = `<div style="font-weight:700">${escapeHtml(r.title)}</div><div class="small">Status: ${escapeHtml(r.status)} • Next: ${r.nextRun?new Date(r.nextRun).toLocaleString():'-'}</div>`
+  historyEl.appendChild(d)
+})
     // Form handling
     function populateForm(id){
       const r = reminders.find(x=>x.id===id); if(!r) return
